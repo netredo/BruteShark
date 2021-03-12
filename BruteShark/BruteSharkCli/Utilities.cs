@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
@@ -42,7 +43,6 @@ namespace BruteSharkCli
             return dataTable;
         }
 
-
         public static void PrintBruteSharkAsciiArt()
         {
             var bruteSharkAscii =@" 
@@ -65,6 +65,41 @@ namespace BruteSharkCli
           ``--''        `       ";
 
             Console.WriteLine(bruteSharkAscii);
+        }
+
+        internal static void ExportHashes(string dirPath, HashSet<PcapAnalyzer.NetworkHash> hashes)
+        {
+            string hashesPath = Path.Combine(dirPath, "Hasehs");
+            Directory.CreateDirectory(hashesPath);
+
+            // Run on each Hash Type we found.
+            foreach (string hashType in hashes.Select(hash => hash.HashType).Distinct())
+            {
+                try
+                {
+                    // Convert all hashes from that type to Hashcat format.
+                    var hashesToExport = hashes.Where(h => (h as PcapAnalyzer.NetworkHash).HashType == hashType)
+                                                .Select(h => BruteForce.Utilities.ConvertToHashcatFormat(
+                                                             CommonUi.Casting.CastAnalyzerHashToBruteForceHash(h)));
+
+                    var outputFilePath = CommonUi.Exporting.GetUniqueFilePath(Path.Combine(hashesPath, $"Brute Shark - {hashType} Hashcat Export.txt"));
+
+                    using (var streamWriter = new StreamWriter(outputFilePath, true))
+                    {
+                        foreach (var hash in hashesToExport)
+                        {
+                            streamWriter.WriteLine(hash);
+                        }
+                    }
+
+                    Console.WriteLine("Hashes file created: " + outputFilePath);
+                }
+                catch (Exception ex)
+                {
+                    // In case Casting.CastAnalyzerHashToBruteForceHash(h) fails and throws exception for not supported hash type
+                    continue;
+                }
+            }
         }
 
     }
